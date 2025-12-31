@@ -185,7 +185,8 @@ public class EmailAsyncService {
      */
     private void sendMail(String email) throws Exception {
         // Example: integrate with EmailService
-        emailService.sendSimpleEmail(email);
+        emailService.sendMail(email);
+
     }
 
     public void retryRow(String jobId, int rowNum) {
