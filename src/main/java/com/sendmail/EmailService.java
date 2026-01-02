@@ -1,39 +1,30 @@
 package com.sendmail;
 
-import com.sendgrid.*;
-import com.sendgrid.helpers.mail.Mail;
-import com.sendgrid.helpers.mail.objects.Content;
-import com.sendgrid.helpers.mail.objects.Email;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 @Service
 public class EmailService {
 
-    @Value("${sendgrid.api.key}")
-    private String sendGridApiKey;
+    @Autowired
+    private JavaMailSender mailSender;
 
-    @Value("${sendgrid.from.email}")
+    @Value("${spring.mail.username}")
     private String fromEmail;
 
-    public void sendMail(String toEmail) throws Exception {
-
-        Email from = new Email(fromEmail);
-        Email to = new Email(toEmail);
-        Content content = new Content("text/plain", "Hello! This is a test email.");
-        Mail mail = new Mail(from, "Bulk Email Test", to, content);
-
-        SendGrid sg = new SendGrid(sendGridApiKey);
-        Request request = new Request();
-
-        request.setMethod(Method.POST);
-        request.setEndpoint("mail/send");
-        request.setBody(mail.build());
-
-        Response response = sg.api(request);
-
-        if (response.getStatusCode() >= 400) {
-            throw new RuntimeException("SendGrid failed: " + response.getBody());
-        }
+    public void sendMail(String to, String subject, String body) throws MessagingException {
+        MimeMessage message = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(message, true);
+        helper.setFrom(fromEmail);
+        helper.setTo(to);
+        helper.setSubject(subject);
+        helper.setText(body, true);
+        mailSender.send(message);
     }
 }
+
