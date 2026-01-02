@@ -185,7 +185,11 @@ public class EmailAsyncService {
      */
     private void sendMail(String email) throws Exception {
         // Example: integrate with EmailService
-        emailService.sendMail(email);
+        emailService.sendMail(
+            email,
+            "Your Subject Here",
+            "Your email body here"
+        );
 
     }
 
