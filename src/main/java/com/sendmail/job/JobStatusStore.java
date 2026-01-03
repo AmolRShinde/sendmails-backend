@@ -1,7 +1,6 @@
-package com.sendmail;
+package com.sendmail.job;
 
 import org.springframework.stereotype.Component;
-
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -20,7 +19,7 @@ public class JobStatusStore {
         return store.get(jobId);
     }
 
-    public void addRow(
+    public void addOrUpdateRow(
             String jobId,
             int row,
             String email,
@@ -34,6 +33,7 @@ public class JobStatusStore {
         }
     }
 
+    /** ✅ ADD THIS METHOD */
     public void updateRowStatus(String jobId, int row, String status) {
         JobStatus js = store.get(jobId);
         if (js != null) {
@@ -44,15 +44,15 @@ public class JobStatusStore {
         }
     }
 
+    public JobStatus.RowStatus getRow(String jobId, int row) {
+        JobStatus js = store.get(jobId);
+        return js != null ? js.getRow(row) : null;
+    }
+
     public void setProgress(String jobId, int progress) {
         JobStatus js = store.get(jobId);
         if (js != null) {
             js.setProgress(progress);
         }
-    }
-
-    public JobStatus.RowStatus getRow(String jobId, int row) {
-        JobStatus js = store.get(jobId);
-        return js != null ? js.getRow(row) : null;
     }
 }

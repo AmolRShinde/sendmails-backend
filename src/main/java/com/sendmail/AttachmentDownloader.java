@@ -1,55 +1,76 @@
 package com.sendmail;
 
+import java.io.File;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.io.File;
+import java.util.UUID;
 
 public class AttachmentDownloader {
 
-    public static File download(String urlPath) throws Exception {
-        if (urlPath == null) return null;
-        if (!urlPath.startsWith("http")) {
-            File f = new File(urlPath);
-            return f.exists() ? f : null;
+    /**
+     * Supports Google Drive links:
+     * 1. https://drive.google.com/file/d/<ID>/view
+     * 2. https://drive.google.com/open?id=<ID>
+     * 3. https://drive.google.com/uc?id=<ID>
+     */
+    public static File download(String driveLink) throws Exception {
+
+        if (driveLink == null || driveLink.isBlank()) {
+            return null;
         }
 
-        String downloadUrl = urlPath;
-        if (urlPath.contains("drive.google.com/file/d/") && urlPath.contains("/view")) {
-            String id = urlPath.split("/file/d/")[1].split("/")[0];
-            downloadUrl = "https://drive.google.com/uc?export=download&id=" + id;
+        String fileId = extractFileId(driveLink);
+        if (fileId == null) {
+            return null;
         }
 
-        URL url = new URL(downloadUrl);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setInstanceFollowRedirects(true);
-        conn.connect();
-        if (conn.getResponseCode() != 200) {
-            throw new RuntimeException("Attachment download failed: " + conn.getResponseCode());
+        String downloadUrl =
+                "https://drive.google.com/uc?export=download&id=" + fileId;
+
+        HttpURLConnection conn =
+                (HttpURLConnection) new URL(downloadUrl).openConnection();
+
+        conn.setConnectTimeout(10_000);
+        conn.setReadTimeout(20_000);
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+
+        int responseCode = conn.getResponseCode();
+        if (responseCode != 200) {
+            throw new RuntimeException(
+                    "Failed to download attachment, HTTP " + responseCode);
         }
 
-        String disposition = conn.getHeaderField("Content-Disposition");
-         String fileName = "attachment.pdf";
-        if (disposition != null && disposition.contains("filename=")) {
-            fileName = disposition.split("filename=")[1].replaceAll("\"", "").trim();
-        } else {
-            String[] parts = url.getPath().split("/");
-            fileName = parts[parts.length - 1];
-        }
-        if (fileName == null || fileName.isEmpty()) fileName = "attachment";
+        String filename = "attachment-" + UUID.randomUUID();
 
-        Path temp = Files.createTempFile("att_", "_" + fileName);
+        File tempFile = File.createTempFile(filename, ".bin");
+
         try (InputStream in = conn.getInputStream()) {
-            Files.copy(in, temp, StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(in, tempFile.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING);
         }
 
-        if (Files.size(temp) < 100) {
-          throw new RuntimeException("Downloaded file too small, possibly HTML page instead of PDF");
+        return tempFile;
+    }
+
+    // ---------------- HELPERS ----------------
+
+    private static String extractFileId(String link) {
+
+        // /file/d/<ID>/
+        if (link.contains("/file/d/")) {
+            int start = link.indexOf("/file/d/") + 8;
+            int end = link.indexOf("/", start);
+            return end > start ? link.substring(start, end) : null;
         }
 
-        return temp.toFile();
+        // ?id=<ID>
+        if (link.contains("id=")) {
+            return link.substring(link.indexOf("id=") + 3).split("&")[0];
+        }
+
+        return null;
     }
 }

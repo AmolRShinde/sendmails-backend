@@ -1,4 +1,4 @@
-package com.sendmail;
+package com.sendmail.job;
 
 import java.util.Comparator;
 import java.util.Map;
@@ -38,8 +38,23 @@ public class JobStatus {
         this.paused = paused;
     }
 
-    public void addOrUpdateRow(int row, String email, String name, String driveLink, String status) {
-        rows.put(row, new RowStatus(row, email, name, driveLink, status));
+    /**
+     * Add a new row or update an existing row safely
+     */
+    public void addOrUpdateRow(
+            int row,
+            String email,
+            String name,
+            String driveLink,
+            String status
+    ) {
+        rows.compute(row, (k, existing) -> {
+            if (existing == null) {
+                return new RowStatus(row, email, name, driveLink, status);
+            }
+            existing.setStatus(status);
+            return existing;
+        });
     }
 
     public RowStatus getRow(int row) {
@@ -57,14 +72,22 @@ public class JobStatus {
                 .collect(Collectors.toList());
     }
 
+    // ================== Inner Class ==================
+
     public static class RowStatus {
         private final int row;
         private final String email;
         private final String name;
         private final String driveLink;
-        private String status;
+        private volatile String status;
 
-        public RowStatus(int row, String email, String name, String driveLink, String status) {
+        public RowStatus(
+                int row,
+                String email,
+                String name,
+                String driveLink,
+                String status
+        ) {
             this.row = row;
             this.email = email;
             this.name = name;
