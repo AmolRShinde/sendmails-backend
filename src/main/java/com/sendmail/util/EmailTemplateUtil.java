@@ -14,6 +14,8 @@ public class EmailTemplateUtil {
         if (is == null) throw new RuntimeException("Template not found");
 
         String content = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        // 🔥 REMOVE ALL LEADING / TRAILING WHITESPACE
+        content = content.trim();
 
         for (var e : vars.entrySet()) {
             content = content.replace("{{" + e.getKey() + "}}", e.getValue());
