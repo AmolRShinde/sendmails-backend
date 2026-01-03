@@ -42,10 +42,20 @@ public class EmailController {
         String jobId = UUID.randomUUID().toString();
         jobStatusStore.createJob(jobId);
 
-        File temp = File.createTempFile("upload_", ".xlsx");
+        File tempDir = new File(System.getProperty("java.io.tmpdir"));
+        if (!tempDir.exists()) {
+            tempDir.mkdirs();
+        }
+
+        File temp = new File(tempDir, "upload-" + jobId + ".xlsx");
         file.transferTo(temp);
 
+        System.out.println("Received file: " + file.getOriginalFilename());
+        System.out.println("File size: " + file.getSize());
+        System.out.println("Temp path: " + temp.getAbsolutePath());
+
         emailAsyncService.processEmailsAsync(temp, jobId);
+        
 
         return ResponseEntity.ok(Map.of("jobId", jobId));
     }
