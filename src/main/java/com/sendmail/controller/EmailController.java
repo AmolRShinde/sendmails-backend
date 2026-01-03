@@ -21,7 +21,13 @@ import com.sendmail.service.SseEmitterService;
 
 @RestController
 @RequestMapping("/api/email")
-@CrossOrigin(origins = "*") // IMPORTANT for Render
+@CrossOrigin(
+  origins = {
+    "http://localhost:3000",
+    "https://amolrshinde.github.io"
+  },
+  allowCredentials = "true"
+)
 public class EmailController {
 
     @Autowired
