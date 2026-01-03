@@ -60,6 +60,8 @@ public class EmailController {
         System.out.println("File size: " + file.getSize());
         System.out.println("Temp path: " + temp.getAbsolutePath());
 
+        jobStatusStore.registerExcel(jobId, temp);
+
         emailAsyncService.processEmailsAsync(temp, jobId);
         
 
@@ -171,4 +173,33 @@ public class EmailController {
     public ResponseEntity<?> retryAll(@PathVariable String jobId) {
         return ResponseEntity.ok("RETRY_ALL_NOT_IMPLEMENTED_YET");
     }
+
+    //download
+    @GetMapping("/download/{jobId}")
+    public ResponseEntity<byte[]> downloadExcel(@PathVariable String jobId)
+            throws Exception {
+
+        File excel = jobStatusStore.getExcel(jobId);
+        if (excel == null || !excel.exists()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        byte[] data = Files.readAllBytes(excel.toPath());
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(
+            MediaType.parseMediaType(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        );
+        headers.setContentDispositionFormData(
+            "attachment",
+            "email-report-" + jobId + ".xlsx"
+        );
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(data);
+    }
+
 }

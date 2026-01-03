@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.util.Map;
 
 import com.sendmail.job.JobStatusStore;
@@ -28,12 +29,15 @@ public class EmailAsyncService {
     @Autowired
     private SseEmitterService sseEmitterService;
 
+    private static final int STATUS_COL = 7; // Column after driveLink
+
     @Async
     public void processEmailsAsync(File excelFile, String jobId) {
 
         try (Workbook workbook = new XSSFWorkbook(new FileInputStream(excelFile))) {
 
             Sheet sheet = workbook.getSheetAt(0);
+            ensureStatusHeader(sheet); // add status column
             int totalRows = countDataRows(sheet);
 
             if (totalRows == 0) {
@@ -102,14 +106,23 @@ public class EmailAsyncService {
 
                     emailService.sendMail(email, subject, body, attachment);
 
+                    updateExcelStatus(workbook, sheet, i, "SENT");
+
                     jobStatusStore.updateRowStatus(jobId, i, "SENT");
 
                 } catch (Exception ex) {
+                    String err = ex.getMessage();
+                    updateExcelStatus(workbook, sheet, i, "FAILED: " + err);
+
                     jobStatusStore.updateRowStatus(
                             jobId,
                             i,
                             "FAILED: " + ex.getMessage()
                     );
+                }
+
+                try (FileOutputStream fos = new FileOutputStream(excelFile)) {
+                    workbook.write(fos);
                 }
 
                 // -------- Push updated row --------
@@ -146,6 +159,53 @@ public class EmailAsyncService {
     }
 
     // ---------------- HELPERS ----------------
+
+    private void ensureStatusHeader(Sheet sheet) {
+        Row header = sheet.getRow(0);
+        if (header == null) header = sheet.createRow(0);
+
+        Cell cell = header.getCell(STATUS_COL);
+        if (cell == null) {
+            cell = header.createCell(STATUS_COL);
+            cell.setCellValue("Status");
+        }
+    }
+
+    private void updateExcelStatus(
+        Workbook workbook,
+        Sheet sheet,
+        int rowIndex,
+        String status
+    ) {
+        Row row = sheet.getRow(rowIndex);
+        if (row == null) return;
+
+        int STATUS_COL = row.getLastCellNum(); // append new column
+        Cell cell = row.getCell(STATUS_COL);
+        if (cell == null) {
+            cell = row.createCell(STATUS_COL);
+        }
+
+        cell.setCellValue(status);
+
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setBold(true);
+
+        if (status.startsWith("SENT")) {
+            style.setFillForegroundColor(IndexedColors.LIGHT_GREEN.getIndex());
+            font.setColor(IndexedColors.DARK_GREEN.getIndex());
+        } else {
+            style.setFillForegroundColor(IndexedColors.ROSE.getIndex());
+            font.setColor(IndexedColors.DARK_RED.getIndex());
+        }
+
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setFont(font);
+        cell.setCellStyle(style);
+    }
+
+
 
     private int countDataRows(Sheet sheet) {
         int count = 0;

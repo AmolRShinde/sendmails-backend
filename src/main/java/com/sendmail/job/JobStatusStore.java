@@ -9,6 +9,16 @@ public class JobStatusStore {
 
     private final Map<String, JobStatus> store = new ConcurrentHashMap<>();
 
+    private final Map<String, File> excelFiles = new ConcurrentHashMap<>();
+
+    public void registerExcel(String jobId, File file) {
+        excelFiles.put(jobId, file);
+    }
+
+    public File getExcel(String jobId) {
+        return excelFiles.get(jobId);
+    }
+
     public JobStatus createJob(String jobId) {
         JobStatus js = new JobStatus(jobId);
         store.put(jobId, js);
