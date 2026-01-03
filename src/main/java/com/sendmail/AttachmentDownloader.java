@@ -6,22 +6,26 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.UUID;
+import java.util.Map;
 
 public class AttachmentDownloader {
 
-    /**
-     * Supports Google Drive links:
-     * 1. https://drive.google.com/file/d/<ID>/view
-     * 2. https://drive.google.com/open?id=<ID>
-     * 3. https://drive.google.com/uc?id=<ID>
-     */
+    // Map content-type → extension
+    private static final Map<String, String> EXT_MAP = Map.ofEntries(
+            Map.entry("application/pdf", ".pdf"),
+            Map.entry("image/jpeg", ".jpg"),
+            Map.entry("image/png", ".png"),
+            Map.entry("application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx"),
+            Map.entry("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".xlsx")
+    );
+
     public static File download(String driveLink) throws Exception {
 
         if (driveLink == null || driveLink.isBlank()) {
             return null;
         }
 
+        // Normalize Google Drive link → direct download
         String fileId = extractFileId(driveLink);
         if (fileId == null) {
             return null;
@@ -32,43 +36,34 @@ public class AttachmentDownloader {
 
         HttpURLConnection conn =
                 (HttpURLConnection) new URL(downloadUrl).openConnection();
+        conn.setConnectTimeout(10000);
+        conn.setReadTimeout(15000);
+        conn.connect();
 
-        conn.setConnectTimeout(10_000);
-        conn.setReadTimeout(20_000);
-        conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+        String contentType = conn.getContentType();
+        String extension = EXT_MAP.getOrDefault(contentType, ".pdf"); // safe fallback
 
-        int responseCode = conn.getResponseCode();
-        if (responseCode != 200) {
-            throw new RuntimeException(
-                    "Failed to download attachment, HTTP " + responseCode);
-        }
-
-        String filename = "attachment-" + UUID.randomUUID();
-
-        File tempFile = File.createTempFile(filename, ".bin");
+        File temp = File.createTempFile("JanToMar2026_MaintenancePayment_Bill-", extension);
 
         try (InputStream in = conn.getInputStream()) {
-            Files.copy(in, tempFile.toPath(),
-                    StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(in, temp.toPath(), StandardCopyOption.REPLACE_EXISTING);
         }
 
-        return tempFile;
+        return temp;
     }
-
-    // ---------------- HELPERS ----------------
 
     private static String extractFileId(String link) {
 
-        // /file/d/<ID>/
+        // Format: /file/d/<ID>/view
         if (link.contains("/file/d/")) {
-            int start = link.indexOf("/file/d/") + 8;
+            int start = link.indexOf("/d/") + 3;
             int end = link.indexOf("/", start);
             return end > start ? link.substring(start, end) : null;
         }
 
-        // ?id=<ID>
+        // Format: ?id=<ID>
         if (link.contains("id=")) {
-            return link.substring(link.indexOf("id=") + 3).split("&")[0];
+            return link.substring(link.indexOf("id=") + 3);
         }
 
         return null;
