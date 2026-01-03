@@ -55,9 +55,14 @@ public class EmailAsyncService {
                     continue;
                 }
 
-                String email = getCellString(row.getCell(0));
-                String name = getCellString(row.getCell(1));
-                String rawDriveLink = getCellString(row.getCell(2));
+                // as per excel file - start
+                String name = getCellString(row.getCell(5)); //flat no
+                String email = getCellString(row.getCell(1)); //receipent email address
+                String rawDriveLink = getCellString(row.getCell(6)); //attachment path
+                // -end
+               // String email = getCellString(row.getCell(0));
+                //String name = getCellString(row.getCell(1));
+                //String rawDriveLink = getCellString(row.getCell(2));
                 String driveLink = normalizeDriveLink(rawDriveLink);
 
                 // -------- Mark PROCESSING --------
@@ -81,12 +86,19 @@ public class EmailAsyncService {
                         attachment = AttachmentDownloader.download(driveLink);
                     }
 
-                    emailService.sendMail(
-                            email,
-                            "Your Subject",
-                            "Dear " + name + ",<br><br>Please find attached.",
-                            attachment
+                    //load subject and body from template
+                    String subject = EmailTemplateUtil.load(
+                        "subject.txt",
+                        Map.of()
                     );
+
+                    String body = EmailTemplateUtil.load(
+                        "email.html",
+                        Map.of("name", name)
+                    );
+                    // end
+
+                    emailService.sendMail(email, subject, body, attachment);
 
                     jobStatusStore.updateRowStatus(jobId, i, "SENT");
 
