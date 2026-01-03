@@ -13,6 +13,8 @@ import java.util.Map;
 import com.sendmail.job.JobStatusStore;
 import com.sendmail.job.JobStatus;
 import com.sendmail.AttachmentDownloader;
+import com.sendmail.util.EmailTemplateUtil;
+
 
 @Service
 public class EmailAsyncService {
